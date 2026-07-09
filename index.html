@@ -44,6 +44,42 @@
 
   ::selection{background:var(--violet-dim);color:#fff;}
 
+  /* ---------- NEON TITLE ---------- */
+  .neon-title{
+    text-align:center;
+    font-weight:700;
+    font-size:44px;
+    letter-spacing:6px;
+    margin:0 0 20px;
+    color:#fff;
+    text-shadow:
+      0 0 6px #fff,
+      0 0 14px var(--violet),
+      0 0 26px var(--violet),
+      0 0 46px var(--cyan),
+      0 0 70px var(--cyan);
+    animation:flicker 4s infinite;
+  }
+  @keyframes flicker{
+    0%,19%,21%,23%,25%,54%,56%,100%{opacity:1;}
+    20%,24%,55%{opacity:0.82;}
+  }
+
+  /* ---------- DAILY QUEST ---------- */
+  .daily-quest{
+    border:1px solid var(--border);
+    background:linear-gradient(180deg, rgba(255,93,108,0.05), rgba(18,19,36,0.4));
+    border-radius:4px;padding:16px 20px;margin-top:12px;
+  }
+  .daily-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+  .daily-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;}
+  .daily-status{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:12px;letter-spacing:1px;padding:3px 9px;border-radius:3px;}
+  .daily-status.pending{color:var(--cyan);border:1px solid var(--cyan);background:rgba(79,216,224,0.08);}
+  .daily-status.cleared{color:var(--success);border:1px solid var(--success);background:rgba(86,227,159,0.08);}
+  .daily-track{height:8px;background:var(--void2);border:1px solid var(--border-soft);border-radius:4px;overflow:hidden;margin-top:12px;}
+  .daily-fill{height:100%;background:linear-gradient(90deg,var(--danger),var(--gold));transition:width .5s ease;}
+  .daily-sub{font-size:11px;color:var(--text-faint);margin-top:8px;}
+
   /* ---------- HUD HEADER ---------- */
   .hud{
     position:relative;
@@ -202,6 +238,8 @@
 <body>
 <div class="wrap">
 
+  <h1 class="neon-title display">THE SYSTEM</h1>
+
   <div class="hud">
     <div class="hud-top">
       <div>
@@ -222,6 +260,15 @@
       <div class="xp-labels"><span>Progress to next rank</span><span id="xpText">0%</span></div>
       <div class="xp-track"><div class="xp-fill" id="xpFill" style="width:0%"></div></div>
     </div>
+  </div>
+
+  <div class="daily-quest">
+    <div class="daily-head">
+      <span class="daily-title">Daily quest — study 120 min</span>
+      <span class="daily-status" id="dailyStatusBadge">0 / 120 min</span>
+    </div>
+    <div class="daily-track"><div class="daily-fill" id="dailyFill" style="width:0%"></div></div>
+    <div class="daily-sub" id="dailySub">Miss this quest before the day resets and you'll be demoted a level.</div>
   </div>
 
   <div class="section-head">
@@ -245,6 +292,19 @@
       <div class="lu-reward-text" id="luRewardText"></div>
     </div>
     <button class="btn" id="luCloseBtn">Continue</button>
+  </div>
+</div>
+
+<div class="overlay" id="penOverlay">
+  <div class="lu-card" style="border-color:var(--danger);">
+    <div class="lu-eyebrow">System notice</div>
+    <div class="lu-title display" style="color:var(--danger);text-shadow:0 0 24px rgba(255,93,108,0.5);">PENALTY</div>
+    <div class="lu-newlevel" id="penMsg">The daily quest was not completed.</div>
+    <div class="lu-reward-box">
+      <div class="lu-reward-tag" style="color:var(--danger);">Consequence</div>
+      <div class="lu-reward-text" id="penDetail"></div>
+    </div>
+    <button class="btn" id="penCloseBtn" style="background:var(--danger);">Accept</button>
   </div>
 </div>
 
@@ -340,7 +400,7 @@
     return Math.round((pos/span)*100);
   }
   function baseMinutesForLevel(n){
-    return 20 + (n-1)*5;
+    return 20 + (n-1)*3;
   }
   function uid(){
     return 't'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -352,8 +412,13 @@
   }
   function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
+  const DAILY_GOAL_MINUTES = 120;
+
   let state = {
-    player: { name:"Hunter", totalMinutes:0, tasksDone:0, streak:0, lastStudyDate:null },
+    player: {
+      name:"Hunter", totalMinutes:0, tasksDone:0, streak:0, lastStudyDate:null,
+      dailyDate:null, dailyMinutes:0, penalties:0
+    },
     levels: [ freshLevel(1) ],
     currentLevelNumber: 1
   };
@@ -423,6 +488,60 @@
     state.player.lastStudyDate = today;
   }
 
+  function ensureDailyFields(){
+    if(state.player.dailyDate === undefined) state.player.dailyDate = null;
+    if(state.player.dailyMinutes === undefined) state.player.dailyMinutes = 0;
+    if(state.player.penalties === undefined) state.player.penalties = 0;
+  }
+
+  function demoteOneLevel(){
+    const cur = state.currentLevelNumber;
+    if(cur <= 1){
+      state.player.totalMinutes = Math.max(0, state.player.totalMinutes - 30);
+      return 'Level 1 cannot be demoted further, so 30 minutes were stripped from your recorded total instead.';
+    }
+    const newLevel = cur - 1;
+    const curLvl = state.levels.find(l=>l.number===cur);
+    if(curLvl){ curLvl.status = 'locked'; curLvl.tasks = []; }
+    const demoted = state.levels.find(l=>l.number===newLevel);
+    if(demoted){ demoted.status = 'active'; demoted.tasks = []; }
+    state.currentLevelNumber = newLevel;
+    return 'You have been demoted from Level '+cur+' back to Level '+newLevel+'. Both levels\' tasks were cleared — the gate must be cleared again.';
+  }
+
+  function checkDailyQuest(){
+    ensureDailyFields();
+    const today = todayStr();
+    if(state.player.dailyDate === null){
+      state.player.dailyDate = today;
+      state.player.dailyMinutes = 0;
+      scheduleSave();
+      return;
+    }
+    if(state.player.dailyDate === today) return;
+
+    if(state.player.dailyMinutes < DAILY_GOAL_MINUTES){
+      state.player.penalties += 1;
+      state.player.streak = 0;
+      const detail = demoteOneLevel();
+      state.player.dailyDate = today;
+      state.player.dailyMinutes = 0;
+      scheduleSave();
+      showPenalty(detail);
+    } else {
+      state.player.dailyDate = today;
+      state.player.dailyMinutes = 0;
+      scheduleSave();
+    }
+  }
+
+  function showPenalty(detail){
+    document.getElementById('penMsg').textContent = 'The daily quest — 120 minutes of study — was not completed yesterday.';
+    document.getElementById('penDetail').textContent = detail;
+    document.getElementById('penOverlay').classList.add('show');
+    render();
+  }
+
   function completeTask(level, task){
     task.completed = true;
     task.running = false;
@@ -430,6 +549,9 @@
     delete runningIntervals[task.id];
     state.player.totalMinutes += task.minutes;
     state.player.tasksDone += 1;
+    ensureDailyFields();
+    checkDailyQuest();
+    state.player.dailyMinutes += task.minutes;
     registerStudyDay();
     scheduleSave();
     render();
@@ -503,7 +625,7 @@
     subject = (subject||'').trim();
     mins = parseInt(mins,10);
     if(!subject) return;
-    if(!mins || mins<1) mins = level.baseMinutes;
+    if(!mins || mins<level.baseMinutes) mins = level.baseMinutes;
     level.tasks.push({
       id: uid(), subject, minutes: mins, remainingSec: mins*60,
       completed:false, running:false
@@ -532,6 +654,17 @@
     const prog = rankProgress(state.currentLevelNumber);
     document.getElementById('xpFill').style.width = prog+'%';
     document.getElementById('xpText').textContent = prog+'%';
+
+    ensureDailyFields();
+    const dm = state.player.dailyMinutes;
+    const dailyPct = Math.min(100, Math.round((dm/DAILY_GOAL_MINUTES)*100));
+    document.getElementById('dailyFill').style.width = dailyPct+'%';
+    const badge = document.getElementById('dailyStatusBadge');
+    badge.textContent = dm+' / '+DAILY_GOAL_MINUTES+' min';
+    badge.className = 'daily-status '+(dm >= DAILY_GOAL_MINUTES ? 'cleared' : 'pending');
+    document.getElementById('dailySub').textContent = dm >= DAILY_GOAL_MINUTES
+      ? 'Quest cleared for today. Keep going if you want, but the penalty is off the table.'
+      : 'Miss this quest before the day resets and you\'ll be demoted a level.';
 
     const container = document.getElementById('levelsContainer');
     container.innerHTML = '';
@@ -621,7 +754,7 @@
           addRow.className = 'add-task-row';
           addRow.innerHTML = `
             <input type="text" name="subject" placeholder="Subject, e.g. Electrical Machines" />
-            <input type="number" name="mins" placeholder="${level.baseMinutes}" min="1" />
+            <input type="number" name="mins" placeholder="${level.baseMinutes}" min="${level.baseMinutes}" />
             <button class="btn">Add task</button>
           `;
           const subjInput = addRow.querySelector('input[name="subject"]');
@@ -632,6 +765,10 @@
           subjInput.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
           minsInput.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
           body.appendChild(addRow);
+          const minHint = document.createElement('div');
+          minHint.className = 'empty-hint';
+          minHint.textContent = 'Every task on this level runs a minimum of '+level.baseMinutes+' minutes — shorter entries are bumped up automatically.';
+          body.appendChild(minHint);
         }
 
         card.appendChild(body);
@@ -656,11 +793,18 @@
     document.getElementById('luOverlay').classList.remove('show');
   });
 
+  document.getElementById('penCloseBtn').addEventListener('click', ()=>{
+    document.getElementById('penOverlay').classList.remove('show');
+  });
+
   document.getElementById('resetBtn').addEventListener('click', async ()=>{
     if(!confirm('This will permanently erase your player data, levels and rewards. Continue?')) return;
     Object.values(runningIntervals).forEach(clearInterval);
     state = {
-      player: { name:"Hunter", totalMinutes:0, tasksDone:0, streak:0, lastStudyDate:null },
+      player: {
+        name:"Hunter", totalMinutes:0, tasksDone:0, streak:0, lastStudyDate:null,
+        dailyDate:null, dailyMinutes:0, penalties:0
+      },
       levels: [ freshLevel(1) ],
       currentLevelNumber: 1
     };
@@ -671,12 +815,15 @@
 
   (async function init(){
     await loadState();
+    ensureDailyFields();
     if(!state.levels.find(l=>l.status==='active')){
       const cur = state.levels.find(l=>l.number===state.currentLevelNumber);
       if(cur) cur.status = 'active';
     }
     expandedLevel = (state.levels.find(l=>l.status==='active')||{}).id || null;
+    checkDailyQuest();
     render();
+    setInterval(checkDailyQuest, 60000);
   })();
 })();
 </script>
