@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE SYSTEM — Hunter's Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Chakra+Petch:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0a0a14;
+    --void2:#0e0e1c;
+    --panel:#121324;
+    --panel2:#171833;
+    --border:#2c2d55;
+    --border-soft:#1e1f3d;
+    --violet:#8f7cff;
+    --violet-dim:#4d3fa3;
+    --violet-glow: rgba(143,124,255,0.35);
+    --gold:#f2b73f;
+    --gold-dim:#8a6a1f;
+    --cyan:#4fd8e0;
+    --danger:#ff5d6c;
+    --success:#56e39f;
+    --text:#e8e8f5;
+    --text-dim:#8b8ca8;
+    --text-faint:#55567a;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;background:var(--void);color:var(--text);
+    font-family:'Chakra Petch',sans-serif;
+    min-height:100vh;
+  }
+  body{
+    background:
+      radial-gradient(ellipse 800px 500px at 50% -10%, rgba(143,124,255,0.10), transparent),
+      radial-gradient(ellipse 600px 400px at 100% 100%, rgba(79,216,224,0.06), transparent),
+      var(--void);
+  }
+  .display{font-family:'Rajdhani',sans-serif;}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 18px 80px;}
+
+  ::selection{background:var(--violet-dim);color:#fff;}
+
+  /* ---------- HUD HEADER ---------- */
+  .hud{
+    position:relative;
+    border:1px solid var(--border);
+    background:linear-gradient(180deg, rgba(143,124,255,0.06), rgba(18,19,36,0.4));
+    border-radius:4px;
+    padding:20px 22px;
+    overflow:hidden;
+  }
+  .hud::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(115deg, transparent 40%, rgba(143,124,255,0.06) 50%, transparent 60%);
+    animation:scan 5s linear infinite;
+  }
+  @keyframes scan{0%{transform:translateX(-100%);}100%{transform:translateX(100%);}}
+  .hud-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;position:relative;z-index:1;}
+  .hud-label{font-size:11px;letter-spacing:3px;color:var(--text-faint);text-transform:uppercase;}
+  .player-name-row{display:flex;align-items:center;gap:10px;margin-top:4px;}
+  .player-name{
+    font-family:'Rajdhani',sans-serif;font-weight:700;font-size:26px;
+    background:transparent;border:none;color:var(--text);
+    border-bottom:1px dashed transparent;outline:none;padding:0;
+    max-width:260px;
+  }
+  .player-name:hover, .player-name:focus{border-bottom-color:var(--violet);}
+  .rank-badge{
+    font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;
+    color:var(--gold);border:1px solid var(--gold-dim);background:rgba(242,183,63,0.08);
+    padding:3px 10px;border-radius:3px;letter-spacing:1px;white-space:nowrap;
+  }
+  .hud-stats{display:flex;gap:22px;flex-wrap:wrap;margin-top:2px;position:relative;z-index:1;}
+  .stat{min-width:74px;}
+  .stat-num{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:22px;color:var(--cyan);}
+  .stat-lbl{font-size:10px;letter-spacing:2px;color:var(--text-faint);text-transform:uppercase;}
+  .xp-row{margin-top:16px;position:relative;z-index:1;}
+  .xp-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:5px;}
+  .xp-track{height:8px;background:var(--void2);border:1px solid var(--border-soft);border-radius:4px;overflow:hidden;}
+  .xp-fill{height:100%;background:linear-gradient(90deg,var(--violet-dim),var(--violet));transition:width .5s ease;}
+
+  /* ---------- SECTION HEADS ---------- */
+  .section-head{
+    display:flex;align-items:center;gap:10px;margin:34px 0 14px;
+  }
+  .section-head .line{flex:1;height:1px;background:linear-gradient(90deg, var(--border), transparent);}
+  .section-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;letter-spacing:3px;color:var(--text-dim);text-transform:uppercase;}
+
+  /* ---------- LEVEL CARDS ---------- */
+  .level-card{
+    border:1px solid var(--border-soft);background:var(--panel);
+    border-radius:4px;margin-bottom:12px;overflow:hidden;
+    transition:border-color .2s;
+  }
+  .level-card.active{border-color:var(--violet-dim);box-shadow:0 0 0 1px var(--violet-dim), 0 0 24px -8px var(--violet-glow);}
+  .level-card.completed{border-color:rgba(86,227,159,0.25);}
+  .level-card.locked{opacity:0.45;}
+  .level-head{
+    display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;user-select:none;
+  }
+  .level-card.locked .level-head{cursor:not-allowed;}
+  .level-num{
+    font-family:'Rajdhani',sans-serif;font-weight:700;font-size:20px;
+    width:38px;height:38px;flex:0 0 38px;border-radius:3px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--void2);border:1px solid var(--border-soft);color:var(--text-dim);
+  }
+  .level-card.active .level-num{color:var(--violet);border-color:var(--violet-dim);}
+  .level-card.completed .level-num{color:var(--success);border-color:rgba(86,227,159,0.3);}
+  .level-info{flex:1;min-width:0;}
+  .level-title{font-family:'Rajdhani',sans-serif;font-weight:600;font-size:16px;}
+  .level-sub{font-size:11px;color:var(--text-faint);margin-top:2px;letter-spacing:0.5px;}
+  .level-status-icon{font-size:12px;color:var(--text-faint);letter-spacing:1px;}
+  .level-body{padding:0 16px 16px;border-top:1px solid var(--border-soft);}
+
+  /* ---------- TASKS ---------- */
+  .task{
+    display:flex;align-items:center;gap:12px;
+    background:var(--void2);border:1px solid var(--border-soft);border-radius:3px;
+    padding:11px 12px;margin-top:10px;
+  }
+  .task.done{border-color:rgba(86,227,159,0.25);}
+  .task.running{border-color:var(--cyan);box-shadow:0 0 14px -6px rgba(79,216,224,0.5);}
+  .task-main{flex:1;min-width:0;}
+  .task-subject{font-weight:600;font-size:14px;}
+  .task-subject.done-text{color:var(--text-dim);text-decoration:line-through;}
+  .task-dur{font-size:11px;color:var(--text-faint);margin-top:2px;}
+  .task-timer{
+    font-family:'Rajdhani',sans-serif;font-weight:700;font-size:19px;color:var(--cyan);
+    min-width:64px;text-align:right;
+  }
+  .task-timer.done-text{color:var(--success);}
+  .icon-btn{
+    background:none;border:1px solid var(--border);color:var(--text-dim);
+    width:30px;height:30px;border-radius:3px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:14px;
+    flex:0 0 30px;
+  }
+  .icon-btn:hover{border-color:var(--violet);color:var(--violet);}
+  .icon-btn.danger:hover{border-color:var(--danger);color:var(--danger);}
+
+  .add-task-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .add-task-row input{
+    background:var(--void2);border:1px solid var(--border-soft);color:var(--text);
+    border-radius:3px;padding:8px 10px;font-family:'Chakra Petch',sans-serif;font-size:13px;
+    outline:none;
+  }
+  .add-task-row input:focus{border-color:var(--violet-dim);}
+  .add-task-row input[name="subject"]{flex:1;min-width:120px;}
+  .add-task-row input[name="mins"]{width:70px;}
+  .btn{
+    font-family:'Rajdhani',sans-serif;font-weight:600;letter-spacing:1px;font-size:13px;
+    background:var(--violet-dim);color:#fff;border:none;border-radius:3px;
+    padding:8px 16px;cursor:pointer;transition:background .15s;
+  }
+  .btn:hover{background:var(--violet);}
+  .btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text-dim);}
+  .btn.ghost:hover{border-color:var(--violet);color:var(--violet);}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+  .empty-hint{font-size:12px;color:var(--text-faint);margin-top:12px;font-style:italic;}
+  .locked-msg{font-size:12px;color:var(--text-faint);padding:0 16px 14px;}
+
+  /* ---------- LEVEL UP MODAL ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(4,4,10,0.86);
+    display:none;align-items:center;justify-content:center;z-index:50;padding:20px;
+  }
+  .overlay.show{display:flex;}
+  .lu-card{
+    max-width:420px;width:100%;text-align:center;
+    background:linear-gradient(180deg, rgba(143,124,255,0.10), var(--panel));
+    border:1px solid var(--gold-dim);border-radius:6px;padding:32px 26px;
+    position:relative;overflow:hidden;
+  }
+  .lu-eyebrow{font-size:11px;letter-spacing:4px;color:var(--text-faint);text-transform:uppercase;}
+  .lu-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:38px;color:var(--gold);margin:8px 0 2px;
+    text-shadow:0 0 24px rgba(242,183,63,0.5);}
+  .lu-newlevel{font-size:14px;color:var(--text-dim);margin-bottom:20px;}
+  .lu-reward-box{
+    background:var(--void2);border:1px solid var(--border-soft);border-radius:4px;
+    padding:16px 18px;margin-bottom:20px;text-align:left;
+  }
+  .lu-reward-tag{font-size:10px;letter-spacing:2px;color:var(--violet);text-transform:uppercase;margin-bottom:6px;}
+  .lu-reward-text{font-size:14px;line-height:1.5;color:var(--text);}
+
+  /* ---------- FOOTER / RESET ---------- */
+  .foot{display:flex;justify-content:center;margin-top:44px;}
+  .reset-link{font-size:11px;color:var(--text-faint);background:none;border:none;cursor:pointer;letter-spacing:1px;}
+  .reset-link:hover{color:var(--danger);}
+
+  @media(max-width:480px){
+    .hud-stats{gap:14px;}
+    .lu-title{font-size:30px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hud">
+    <div class="hud-top">
+      <div>
+        <div class="hud-label">Status window</div>
+        <div class="player-name-row">
+          <input class="player-name display" id="playerName" maxlength="20" spellcheck="false">
+        </div>
+      </div>
+      <div class="rank-badge" id="rankBadge">E-RANK</div>
+    </div>
+    <div class="hud-stats">
+      <div class="stat"><div class="stat-num display" id="statLevel">1</div><div class="stat-lbl">Level</div></div>
+      <div class="stat"><div class="stat-num display" id="statMinutes">0</div><div class="stat-lbl">Minutes</div></div>
+      <div class="stat"><div class="stat-num display" id="statStreak">0</div><div class="stat-lbl">Streak</div></div>
+      <div class="stat"><div class="stat-num display" id="statTasks">0</div><div class="stat-lbl">Tasks done</div></div>
+    </div>
+    <div class="xp-row">
+      <div class="xp-labels"><span>Progress to next rank</span><span id="xpText">0%</span></div>
+      <div class="xp-track"><div class="xp-fill" id="xpFill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <span class="section-title">Dungeon levels</span>
+    <div class="line"></div>
+  </div>
+  <div id="levelsContainer"></div>
+
+  <div class="foot">
+    <button class="reset-link" id="resetBtn">reset all progress</button>
+  </div>
+</div>
+
+<div class="overlay" id="luOverlay">
+  <div class="lu-card">
+    <div class="lu-eyebrow">System notice</div>
+    <div class="lu-title display">LEVEL UP</div>
+    <div class="lu-newlevel" id="luNewLevel">You have reached Level 2.</div>
+    <div class="lu-reward-box">
+      <div class="lu-reward-tag" id="luRewardTag">Reward — knowledge</div>
+      <div class="lu-reward-text" id="luRewardText"></div>
+    </div>
+    <button class="btn" id="luCloseBtn">Continue</button>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCltfp3gA9aH6ySZoq8qYEKxeBfs5eX-Vw",
+    authDomain: "the-system-278c2.firebaseapp.com",
+    projectId: "the-system-278c2",
+    storageBucket: "the-system-278c2.firebasestorage.app",
+    messagingSenderId: "4883610924",
+    appId: "1:4883610924:web:622a689817190400d57aab"
+  };
+  const firebaseApp = initializeApp(firebaseConfig);
+  const db = getFirestore(firebaseApp);
+  const docRef = doc(db, "system", "hunter_data");
+
+(function(){
+  const REWARDS = {
+    knowledge: [
+      "The human brain has no pain receptors of its own — brain surgery can be performed on a conscious patient without them feeling the cutting.",
+      "A single bolt of lightning is roughly five times hotter than the surface of the sun.",
+      "Octopuses have three hearts and blue blood, and two of the hearts stop beating when they swim.",
+      "Honey found in ancient Egyptian tombs thousands of years old is still edible — it essentially never spoils.",
+      "The Eiffel Tower grows about 15 centimeters taller in summer as the iron expands in the heat.",
+      "Bananas are naturally slightly radioactive because of their potassium content.",
+      "A day on Venus is longer than a year on Venus — it rotates that slowly.",
+      "Sharks have existed longer than trees — sharks predate trees by tens of millions of years.",
+      "Your stomach lining replaces itself every few days, otherwise it would digest itself.",
+      "There are more possible chess games than atoms in the observable universe.",
+      "Wombat droppings are cube-shaped, which stops them from rolling away and helps mark territory.",
+      "The shortest war in recorded history lasted well under an hour.",
+      "Glass is technically an amorphous solid — its atoms are arranged more like a very slow-moving liquid than a crystal.",
+      "Sound travels about four times faster underwater than it does through air.",
+      "A group of flamingos is called a 'flamboyance.'"
+    ],
+    joke: [
+      "Why did the electron break up with the proton? It just wasn't a positive relationship.",
+      "I told my computer I needed a break, and now it won't stop sending me vacation ads.",
+      "Why do programmers prefer dark mode? Because light attracts bugs.",
+      "Parallel lines have so much in common. It's a shame they'll never meet.",
+      "I would tell a chemistry joke, but I know I wouldn't get a reaction.",
+      "Why did the student eat his homework? Because the teacher said it was a piece of cake.",
+      "I used to be a mechanical engineer, but I couldn't handle the pressure — so I switched to fluids.",
+      "Why was the equal sign so humble? Because it knew it wasn't less than or greater than anyone else.",
+      "How does a mathematician induce good behavior in her children? 'I've told you n times, I've told you n+1 times...'",
+      "Why did the circuit break up with the battery? It felt no connection.",
+      "I have a joke about vectors, but it doesn't really have a point without direction.",
+      "Why don't scientists trust atoms? Because they make up everything.",
+      "What do you call a factory that makes decent products? A satisfactory.",
+      "Why was the gear always calm under pressure? Because it knew how to mesh with others.",
+      "I'm reading a book on anti-gravity. It's impossible to put down."
+    ],
+    gift: [
+      "A gate has closed. Somewhere in your mind, a small room you didn't have before now exists — permanently.",
+      "The System records this: consistency, not talent, is the stat you have been grinding.",
+      "Rest is not a pause in the leveling process. It is part of it. The System permits it.",
+      "You are stronger than the version of you that started this level. That version cannot be recovered — only built upon.",
+      "A hidden quest has been quietly completed: 'Show up on a day you didn't want to.'",
+      "The gap between Level 1 and every level after it is the only gap that ever mattered.",
+      "No one else can see your stat sheet. That is exactly why it is honest.",
+      "The System notes: difficulty does not decrease with level. Capacity does.",
+      "Somewhere, a slightly less capable version of you just got left behind. Good.",
+      "A title has been unlocked, visible only to you: 'One Who Continued.'",
+      "The dungeon did not get easier. You got heavier.",
+      "This is not the last level. It was never going to be the last level. Proceed anyway.",
+      "The System has logged this attempt as evidence — for the next time you doubt whether you can.",
+      "Small gains compound in silence, then announce themselves all at once. This is that announcement.",
+      "You did not skip today. That is the whole game."
+    ]
+  };
+
+  const RANKS = [
+    {min:1, max:4, name:"E-RANK"},
+    {min:5, max:9, name:"D-RANK"},
+    {min:10, max:14, name:"C-RANK"},
+    {min:15, max:19, name:"B-RANK"},
+    {min:20, max:24, name:"A-RANK"},
+    {min:25, max:9999, name:"S-RANK"}
+  ];
+
+  function rankFor(level){
+    const r = RANKS.find(r => level >= r.min && level <= r.max) || RANKS[RANKS.length-1];
+    return r;
+  }
+  function rankProgress(level){
+    const r = rankFor(level);
+    if(r.max >= 9999) return 100;
+    const span = r.max - r.min + 1;
+    const pos = level - r.min + 1;
+    return Math.round((pos/span)*100);
+  }
+  function baseMinutesForLevel(n){
+    return 20 + (n-1)*5;
+  }
+  function uid(){
+    return 't'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  }
+  function fmtTime(sec){
+    const m = Math.floor(sec/60).toString().padStart(2,'0');
+    const s = Math.floor(sec%60).toString().padStart(2,'0');
+    return m+':'+s;
+  }
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  let state = {
+    player: { name:"Hunter", totalMinutes:0, tasksDone:0, streak:0, lastStudyDate:null },
+    levels: [ freshLevel(1) ],
+    currentLevelNumber: 1
+  };
+
+  function freshLevel(n){
+    return {
+      id: 'lvl'+n,
+      number: n,
+      status: n===1 ? 'active' : 'locked',
+      baseMinutes: baseMinutesForLevel(n),
+      tasks: []
+    };
+  }
+
+  let saveTimer = null;
+  function scheduleSave(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveState, 800);
+  }
+  async function saveState(){
+    try {
+      await setDoc(docRef, {
+        player: state.player,
+        levels: state.levels,
+        currentLevelNumber: state.currentLevelNumber
+      });
+      console.log("System Sync: Progress uploaded to the cloud.");
+    } catch(e) {
+      console.error('System Error: Sync upload failed', e);
+    }
+  }
+  async function loadState(){
+    try {
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const parsed = docSnap.data();
+        if (parsed && parsed.player && parsed.levels) {
+          state = parsed;
+          state.levels.forEach(lv => {
+            lv.tasks.forEach(t => { t.running = false; });
+          });
+          console.log("System Sync: Profile restored successfully.");
+        }
+      } else {
+        console.log("Welcome Hunter: Initializing a fresh save slot.");
+      }
+    } catch(e) {
+      console.error('System Error: Data retrieval failed', e);
+    }
+  }
+
+  const runningIntervals = {};
+
+  function todayStr(){
+    return new Date().toISOString().slice(0,10);
+  }
+  function registerStudyDay(){
+    const today = todayStr();
+    if(state.player.lastStudyDate === today) return;
+    const y = new Date(); y.setDate(y.getDate()-1);
+    const yesterday = y.toISOString().slice(0,10);
+    if(state.player.lastStudyDate === yesterday){
+      state.player.streak += 1;
+    } else {
+      state.player.streak = 1;
+    }
+    state.player.lastStudyDate = today;
+  }
+
+  function completeTask(level, task){
+    task.completed = true;
+    task.running = false;
+    clearInterval(runningIntervals[task.id]);
+    delete runningIntervals[task.id];
+    state.player.totalMinutes += task.minutes;
+    state.player.tasksDone += 1;
+    registerStudyDay();
+    scheduleSave();
+    render();
+    const allDone = level.tasks.length>0 && level.tasks.every(t=>t.completed);
+    if(allDone){
+      setTimeout(()=>levelUp(level), 400);
+    }
+  }
+
+  function levelUp(level){
+    level.status = 'completed';
+    const nextNum = level.number+1;
+    let next = state.levels.find(l=>l.number===nextNum);
+    if(!next){
+      next = freshLevel(nextNum);
+      state.levels.push(next);
+    }
+    next.status = 'active';
+    state.currentLevelNumber = nextNum;
+    scheduleSave();
+
+    const categories = ['knowledge','joke','gift'];
+    const cat = pick(categories);
+    const text = pick(REWARDS[cat]);
+    const tagNames = {knowledge:'Reward — knowledge', joke:'Reward — a laugh before the next gate', gift:'Reward — a gift from the System'};
+    document.getElementById('luRewardTag').textContent = tagNames[cat];
+    document.getElementById('luRewardText').textContent = text;
+    document.getElementById('luNewLevel').textContent = 'You have reached Level '+nextNum+'.';
+    document.getElementById('luOverlay').classList.add('show');
+    render();
+  }
+
+  function startTimer(level, task){
+    if(task.completed || task.running) return;
+    task.running = true;
+    render();
+    runningIntervals[task.id] = setInterval(()=>{
+      task.remainingSec -= 1;
+      if(task.remainingSec <= 0){
+        task.remainingSec = 0;
+        completeTask(level, task);
+        return;
+      }
+      const el = document.getElementById('timer-'+task.id);
+      if(el) el.textContent = fmtTime(task.remainingSec);
+    }, 1000);
+    scheduleSave();
+  }
+  function pauseTimer(task){
+    task.running = false;
+    clearInterval(runningIntervals[task.id]);
+    delete runningIntervals[task.id];
+    scheduleSave();
+    render();
+  }
+  function resetTimer(task){
+    task.running = false;
+    clearInterval(runningIntervals[task.id]);
+    delete runningIntervals[task.id];
+    task.remainingSec = task.minutes*60;
+    scheduleSave();
+    render();
+  }
+  function deleteTask(level, task){
+    if(task.running){ clearInterval(runningIntervals[task.id]); delete runningIntervals[task.id]; }
+    level.tasks = level.tasks.filter(t=>t.id!==task.id);
+    scheduleSave();
+    render();
+  }
+  function addTask(level, subject, mins){
+    subject = (subject||'').trim();
+    mins = parseInt(mins,10);
+    if(!subject) return;
+    if(!mins || mins<1) mins = level.baseMinutes;
+    level.tasks.push({
+      id: uid(), subject, minutes: mins, remainingSec: mins*60,
+      completed:false, running:false
+    });
+    scheduleSave();
+    render();
+  }
+
+  let expandedLevel = null;
+
+  function levelStatusLabel(level){
+    if(level.status==='locked') return 'LOCKED';
+    if(level.status==='completed') return 'CLEARED';
+    const done = level.tasks.filter(t=>t.completed).length;
+    return done+' / '+level.tasks.length+' TASKS';
+  }
+
+  function render(){
+    document.getElementById('playerName').value = state.player.name;
+    const rank = rankFor(state.currentLevelNumber);
+    document.getElementById('rankBadge').textContent = rank.name;
+    document.getElementById('statLevel').textContent = state.currentLevelNumber;
+    document.getElementById('statMinutes').textContent = state.player.totalMinutes;
+    document.getElementById('statStreak').textContent = state.player.streak;
+    document.getElementById('statTasks').textContent = state.player.tasksDone;
+    const prog = rankProgress(state.currentLevelNumber);
+    document.getElementById('xpFill').style.width = prog+'%';
+    document.getElementById('xpText').textContent = prog+'%';
+
+    const container = document.getElementById('levelsContainer');
+    container.innerHTML = '';
+    const sorted = [...state.levels].sort((a,b)=>a.number-b.number);
+    sorted.forEach(level=>{
+      const card = document.createElement('div');
+      card.className = 'level-card '+level.status;
+
+      const head = document.createElement('div');
+      head.className = 'level-head';
+      const isOpen = expandedLevel === level.id;
+      head.innerHTML = `
+        <div class="level-num display">${level.number}</div>
+        <div class="level-info">
+          <div class="level-title display">Level ${level.number}</div>
+          <div class="level-sub">Study session length &middot; ${level.baseMinutes} min per task</div>
+        </div>
+        <div class="level-status-icon display">${levelStatusLabel(level)}</div>
+      `;
+      if(level.status !== 'locked'){
+        head.addEventListener('click', ()=>{
+          expandedLevel = isOpen ? null : level.id;
+          render();
+        });
+      }
+      card.appendChild(head);
+
+      if(level.status === 'locked'){
+        const msg = document.createElement('div');
+        msg.className = 'locked-msg';
+        msg.textContent = 'Clear Level '+(level.number-1)+' to unlock this gate.';
+        card.appendChild(msg);
+      } else if(isOpen){
+        const body = document.createElement('div');
+        body.className = 'level-body';
+
+        if(level.tasks.length === 0){
+          const hint = document.createElement('div');
+          hint.className = 'empty-hint';
+          hint.textContent = 'No tasks yet. Add a subject below to begin this level.';
+          body.appendChild(hint);
+        }
+
+        level.tasks.forEach(task=>{
+          const t = document.createElement('div');
+          t.className = 'task'+(task.completed?' done':'')+(task.running?' running':'');
+          const timerText = task.completed ? 'DONE' : fmtTime(task.remainingSec);
+          t.innerHTML = `
+            <div class="task-main">
+              <div class="task-subject display ${task.completed?'done-text':''}">${escapeHtml(task.subject)}</div>
+              <div class="task-dur">${task.minutes} min session</div>
+            </div>
+            <div class="task-timer display ${task.completed?'done-text':''}" id="timer-${task.id}">${timerText}</div>
+          `;
+          const controls = document.createElement('div');
+          controls.style.display='flex';
+          controls.style.gap='6px';
+          if(!task.completed){
+            const playBtn = document.createElement('button');
+            playBtn.className='icon-btn';
+            playBtn.title = task.running ? 'Pause' : 'Start';
+            playBtn.textContent = task.running ? '❙❙' : '▶';
+            playBtn.addEventListener('click', ()=>{
+              if(task.running) pauseTimer(task); else startTimer(level, task);
+            });
+            controls.appendChild(playBtn);
+
+            const resetBtn = document.createElement('button');
+            resetBtn.className='icon-btn';
+            resetBtn.title='Reset timer';
+            resetBtn.textContent='↺';
+            resetBtn.addEventListener('click', ()=>resetTimer(task));
+            controls.appendChild(resetBtn);
+          }
+          const delBtn = document.createElement('button');
+          delBtn.className='icon-btn danger';
+          delBtn.title='Remove task';
+          delBtn.textContent='✕';
+          delBtn.addEventListener('click', ()=>deleteTask(level, task));
+          controls.appendChild(delBtn);
+          t.appendChild(controls);
+          body.appendChild(t);
+        });
+
+        if(level.status === 'active'){
+          const addRow = document.createElement('div');
+          addRow.className = 'add-task-row';
+          addRow.innerHTML = `
+            <input type="text" name="subject" placeholder="Subject, e.g. Electrical Machines" />
+            <input type="number" name="mins" placeholder="${level.baseMinutes}" min="1" />
+            <button class="btn">Add task</button>
+          `;
+          const subjInput = addRow.querySelector('input[name="subject"]');
+          const minsInput = addRow.querySelector('input[name="mins"]');
+          const addBtn = addRow.querySelector('button');
+          const submit = ()=>{ addTask(level, subjInput.value, minsInput.value); };
+          addBtn.addEventListener('click', submit);
+          subjInput.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+          minsInput.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+          body.appendChild(addRow);
+        }
+
+        card.appendChild(body);
+      }
+
+      container.appendChild(card);
+    });
+  }
+
+  function escapeHtml(s){
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  document.getElementById('playerName').addEventListener('input', (e)=>{
+    state.player.name = e.target.value || 'Hunter';
+    scheduleSave();
+  });
+
+  document.getElementById('luCloseBtn').addEventListener('click', ()=>{
+    document.getElementById('luOverlay').classList.remove('show');
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', async ()=>{
+    if(!confirm('This will permanently erase your player data, levels and rewards. Continue?')) return;
+    Object.values(runningIntervals).forEach(clearInterval);
+    state = {
+      player: { name:"Hunter", totalMinutes:0, tasksDone:0, streak:0, lastStudyDate:null },
+      levels: [ freshLevel(1) ],
+      currentLevelNumber: 1
+    };
+    expandedLevel = null;
+    await saveState();
+    render();
+  });
+
+  (async function init(){
+    await loadState();
+    if(!state.levels.find(l=>l.status==='active')){
+      const cur = state.levels.find(l=>l.number===state.currentLevelNumber);
+      if(cur) cur.status = 'active';
+    }
+    expandedLevel = (state.levels.find(l=>l.status==='active')||{}).id || null;
+    render();
+  })();
+})();
+</script>
+</body>
+</html>
