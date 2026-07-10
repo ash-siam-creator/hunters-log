@@ -828,6 +828,14 @@
     setInterval(checkDailyQuest, 60000);
   })();
 })();
+  if ("serviceWorker" in navigator) {
+
+    navigator.serviceWorker
+        .register("service-worker.js")
+        .then(() => console.log("Service Worker Registered"))
+        .catch(error => console.log(error));
+
+}
 </script>
 </body>
 </html>
