@@ -46,6 +46,132 @@
 
   ::selection{background:var(--violet-dim);color:#fff;}
 
+  /* ---------- NEON TITLE ---------- */
+  .neon-title{
+    text-align:center;
+    font-weight:700;
+    font-size:44px;
+    letter-spacing:6px;
+    margin:0 0 20px;
+    color:#fff;
+    position:relative;
+    z-index:1;
+    text-shadow:
+      0 0 6px #fff,
+      0 0 14px var(--violet),
+      0 0 26px var(--violet),
+      0 0 46px var(--cyan),
+      0 0 70px var(--cyan);
+    animation:flicker 4s infinite;
+  }
+  @keyframes flicker{
+    0%,19%,21%,23%,25%,54%,56%,100%{opacity:1;}
+    20%,24%,55%{opacity:0.82;}
+  }
+  @media(max-width:480px){
+    .neon-title{font-size:30px;letter-spacing:3px;}
+  }
+
+  /* ---------- GLOWING WAVE BACKGROUND ---------- */
+  .glow-waves{
+    position:fixed;
+    inset:0;
+    z-index:-1;
+    overflow:hidden;
+    pointer-events:none;
+  }
+  .wave{
+    position:absolute;
+    left:0;
+    width:200%;
+    height:42vh;
+  }
+  .wave1{
+    bottom:-4vh;
+    fill:var(--violet);
+    filter:drop-shadow(0 0 24px var(--violet)) drop-shadow(0 0 46px var(--violet)) blur(0.5px);
+    animation:waveMove 20s linear infinite;
+    opacity:.3;
+  }
+  .wave2{
+    bottom:-8vh;
+    fill:var(--cyan);
+    filter:drop-shadow(0 0 26px var(--cyan)) drop-shadow(0 0 50px var(--cyan)) blur(0.5px);
+    animation:waveMove 14s linear infinite reverse;
+    opacity:.22;
+  }
+  .wave3{
+    bottom:-2vh;
+    fill:var(--gold);
+    filter:drop-shadow(0 0 20px var(--gold)) blur(0.5px);
+    animation:waveMove 28s linear infinite;
+    opacity:.14;
+  }
+  @keyframes waveMove{
+    from{ transform:translateX(0); }
+    to{ transform:translateX(-50%); }
+  }
+  @media(prefers-reduced-motion: reduce){
+    .wave{ animation:none; }
+  }
+
+  /* ---------- WELCOME INTRO ---------- */
+  .welcome-overlay{
+    position:fixed;inset:0;z-index:200;
+    background:var(--void);
+    display:flex;align-items:center;justify-content:center;
+    flex-direction:column;
+    transition:opacity .8s ease, visibility .8s ease;
+  }
+  .welcome-overlay.hide{opacity:0;visibility:hidden;pointer-events:none;}
+  .welcome-inner{text-align:center;padding:20px;}
+  .welcome-eyebrow{
+    font-size:12px;letter-spacing:5px;color:var(--text-faint);text-transform:uppercase;
+    opacity:0;animation:wFadeUp .8s ease forwards .2s;
+  }
+  .welcome-line{
+    font-family:'Rajdhani',sans-serif;font-weight:700;
+    font-size:34px;letter-spacing:3px;color:var(--text);
+    margin-top:10px;
+    opacity:0;
+    animation:wFadeUp .9s ease forwards .6s;
+  }
+  .welcome-line .wname{color:var(--violet);}
+  .welcome-system{
+    font-family:'Rajdhani',sans-serif;font-weight:700;
+    font-size:52px;letter-spacing:8px;color:#fff;margin-top:14px;
+    text-shadow:
+      0 0 6px #fff,
+      0 0 14px var(--violet),
+      0 0 26px var(--violet),
+      0 0 46px var(--cyan),
+      0 0 70px var(--cyan);
+    opacity:0;
+    animation:wFadeUp 1s ease forwards 1.15s, flicker 4s infinite 2.15s;
+  }
+  .welcome-bar{
+    width:220px;height:2px;margin:26px auto 0;
+    background:var(--border-soft);position:relative;overflow:hidden;
+    opacity:0;animation:wFadeUp .6s ease forwards 1.6s;
+  }
+  .welcome-bar::after{
+    content:"";position:absolute;top:0;left:-40%;width:40%;height:100%;
+    background:linear-gradient(90deg, transparent, var(--cyan), transparent);
+    animation:wSweep 1.4s ease-in-out infinite 1.9s;
+  }
+  @keyframes wFadeUp{
+    from{opacity:0;transform:translateY(14px);}
+    to{opacity:1;transform:translateY(0);}
+  }
+  @keyframes wSweep{
+    0%{left:-40%;}
+    100%{left:100%;}
+  }
+  @media(max-width:480px){
+    .welcome-system{font-size:34px;letter-spacing:4px;}
+    .welcome-line{font-size:22px;}
+  }
+
   /* ---------- HUD HEADER ---------- */
   .hud{
     position:relative;
@@ -328,6 +454,40 @@
 </style>
 </head>
 <body>
+
+<div class="welcome-overlay" id="welcomeOverlay">
+  <div class="welcome-inner">
+    <div class="welcome-eyebrow">System notice</div>
+    <div class="welcome-line">Welcome player, <span class="wname" id="welcomeName">Hunter</span></div>
+    <div class="welcome-system display">THE SYSTEM</div>
+    <div class="welcome-bar"></div>
+  </div>
+</div>
+
+<div class="glow-waves" aria-hidden="true">
+  <svg class="wave wave1" viewBox="0 0 2880 320" preserveAspectRatio="none">
+    <defs>
+      <path id="waveShape1" d="M0,160L48,170.7C96,181,192,203,288,192C384,181,480,139,576,133.3C672,128,768,160,864,181.3C960,203,1056,213,1152,197.3C1248,181,1344,139,1392,117.3L1440,96L1440,320L0,320Z"/>
+    </defs>
+    <use href="#waveShape1" x="0" y="0"/>
+    <use href="#waveShape1" x="1440" y="0"/>
+  </svg>
+  <svg class="wave wave2" viewBox="0 0 2880 320" preserveAspectRatio="none">
+    <defs>
+      <path id="waveShape2" d="M0,192L60,181.3C120,171,240,149,360,154.7C480,160,600,192,720,197.3C840,203,960,181,1080,165.3C1200,149,1320,139,1380,133.3L1440,128L1440,320L0,320Z"/>
+    </defs>
+    <use href="#waveShape2" x="0" y="0"/>
+    <use href="#waveShape2" x="1440" y="0"/>
+  </svg>
+  <svg class="wave wave3" viewBox="0 0 2880 320" preserveAspectRatio="none">
+    <defs>
+      <path id="waveShape3" d="M0,128L80,144C160,160,320,192,480,197.3C640,203,800,181,960,154.7C1120,128,1280,96,1360,80L1440,64L1440,320L0,320Z"/>
+    </defs>
+    <use href="#waveShape3" x="0" y="0"/>
+    <use href="#waveShape3" x="1440" y="0"/>
+  </svg>
+</div>
+
 <datalist id="buetSubjects">
   <option value="Math 291 — Diff. Eq., Vector Calculus & Laplace">
   <option value="EEE 271 — Electrical Machines and Electronics">
@@ -340,6 +500,8 @@
   <option value="IPE 204 — Engineering Graphics & CAD Sessional">
 </datalist>
 <div class="wrap">
+
+  <h1 class="neon-title display">THE SYSTEM</h1>
 
   <div class="hud">
     <div class="hud-top">
@@ -1407,6 +1569,19 @@
     checkDailyQuest();
     render();
     setInterval(checkDailyQuest, 60000);
+
+    const welcomeOverlay = document.getElementById('welcomeOverlay');
+    const welcomeName = document.getElementById('welcomeName');
+    if(welcomeName) welcomeName.textContent = state.player.name || 'Hunter';
+    const dismissWelcome = ()=>{
+      if(!welcomeOverlay) return;
+      welcomeOverlay.classList.add('hide');
+      welcomeOverlay.removeEventListener('click', dismissWelcome);
+    };
+    if(welcomeOverlay){
+      welcomeOverlay.addEventListener('click', dismissWelcome);
+      setTimeout(dismissWelcome, 3400);
+    }
   })();
 })();
 })();
