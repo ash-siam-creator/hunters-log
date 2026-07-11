@@ -994,7 +994,8 @@
     });
     scheduleSave();
     render();
-    const allDone = level.tasks.length>0 && level.tasks.every(t=>t.completed);
+    const completedMinutes = level.tasks.filter(t=>t.completed).reduce((sum,t)=>sum+t.minutes,0);
+    const allDone = level.tasks.length>0 && level.tasks.every(t=>t.completed) && completedMinutes >= level.baseMinutes;
     if(allDone){
       setTimeout(()=>levelUp(level), 400);
     }
