@@ -46,6 +46,18 @@
 
   ::selection{background:var(--violet-dim);color:#fff;}
 
+  /* ---------- OFFLINE / SYNC NOTICE ---------- */
+  .offline-bar{
+    position:fixed;top:0;left:0;right:0;z-index:100;
+    background:linear-gradient(90deg, var(--danger), var(--gold-dim));
+    color:#0a0a14;font-family:'Rajdhani',sans-serif;font-weight:700;
+    font-size:12.5px;letter-spacing:1px;text-align:center;
+    padding:8px 12px;
+    transform:translateY(-100%);
+    transition:transform .35s ease;
+  }
+  .offline-bar.show{transform:translateY(0);}
+
   /* ---------- NEON TITLE ---------- */
   .neon-title{
     text-align:center;
@@ -455,6 +467,8 @@
 </head>
 <body>
 
+<div class="offline-bar" id="offlineBar">⚠ Offline — couldn't confirm your saved progress. Changes are paused until reconnected.</div>
+
 <div class="welcome-overlay" id="welcomeOverlay">
   <div class="welcome-inner">
     <div class="welcome-eyebrow">System notice</div>
@@ -673,7 +687,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyCltfp3gA9aH6ySZoq8qYEKxeBfs5eX-Vw",
@@ -684,7 +698,9 @@
     appId: "1:4883610924:web:622a689817190400d57aab"
   };
   const firebaseApp = initializeApp(firebaseConfig);
-  const db = getFirestore(firebaseApp);
+  const db = initializeFirestore(firebaseApp, {
+    localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
+  });
   const docRef = doc(db, "system", "hunter_data");
 
 (function(){
@@ -829,7 +845,7 @@
     return Math.round((pos/span)*100);
   }
   function baseMinutesForLevel(n){
-    return 20 + (n-1)*5;
+    return 20 + (n-1)*3;
   }
   function uid(){
     return 't'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -876,11 +892,19 @@
   }
 
   let saveTimer = null;
+  let stateLoaded = false;
+  let offlineNoticeShown = false;
+
   function scheduleSave(){
+    if(!stateLoaded) return; // never queue a write until we've confirmed real data
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveState, 800);
   }
   async function saveState(){
+    if(!stateLoaded){
+      console.warn('System Sync: Save blocked — state has not been confirmed from the cloud yet.');
+      return;
+    }
     try{
       await setDoc(docRef, state);
       console.log("System Sync: Progress uploaded to the cloud.");
@@ -902,9 +926,24 @@
       } else {
         console.log("Welcome Hunter: Initializing a fresh save slot.");
       }
+      stateLoaded = true; // only now is it safe to let saves through
+      hideOfflineNotice();
     }catch(e){
-      console.error('System Error: Data retrieval failed', e);
+      console.error('System Error: Data retrieval failed — saving is disabled until sync succeeds.', e);
+      showOfflineNotice();
     }
+  }
+
+  function showOfflineNotice(){
+    if(offlineNoticeShown) return;
+    offlineNoticeShown = true;
+    const bar = document.getElementById('offlineBar');
+    if(bar) bar.classList.add('show');
+  }
+  function hideOfflineNotice(){
+    offlineNoticeShown = false;
+    const bar = document.getElementById('offlineBar');
+    if(bar) bar.classList.remove('show');
   }
 
   const runningIntervals = {};
@@ -995,8 +1034,7 @@
     scheduleSave();
     render();
     const completedMinutes = level.tasks.filter(t=>t.completed).reduce((sum,t)=>sum+t.minutes,0);
-    const allDone = level.tasks.length>0 && level.tasks.every(t=>t.completed) && completedMinutes >= level.baseMinutes;
-    if(allDone){
+    if(level.status === 'active' && completedMinutes >= level.baseMinutes){
       setTimeout(()=>levelUp(level), 400);
     }
   }
@@ -1090,8 +1128,8 @@
   function levelStatusLabel(level){
     if(level.status==='locked') return 'LOCKED';
     if(level.status==='completed') return 'CLEARED';
-    const done = level.tasks.filter(t=>t.completed).length;
-    return done+' / '+level.tasks.length+' TASKS';
+    const doneMinutes = level.tasks.filter(t=>t.completed).reduce((s,t)=>s+t.minutes,0);
+    return Math.min(doneMinutes,level.baseMinutes)+' / '+level.baseMinutes+' MIN';
   }
 
   function render(){
@@ -1132,7 +1170,7 @@
         <div class="level-num display">${level.number}</div>
         <div class="level-info">
           <div class="level-title display">Level ${level.number}</div>
-          <div class="level-sub">Study session length &middot; ${level.baseMinutes} min per task</div>
+          <div class="level-sub">Clear requirement &middot; ${level.baseMinutes} total min studied</div>
         </div>
         <div class="level-status-icon display">${levelStatusLabel(level)}</div>
       `;
@@ -1570,6 +1608,31 @@
     checkDailyQuest();
     render();
     setInterval(checkDailyQuest, 60000);
+
+    // If the initial load failed (offline with nothing cached yet), keep retrying
+    // quietly in the background. Saving stays blocked (see stateLoaded) until one
+    // of these succeeds, so nothing can overwrite real cloud data with a blank state.
+    async function retrySyncIfNeeded(){
+      if(stateLoaded) return;
+      await loadState();
+      if(stateLoaded){
+        ensureStateShape();
+        if(!state.levels.find(l=>l.status==='active')){
+          const cur = state.levels.find(l=>l.number===state.currentLevelNumber);
+          if(cur) cur.status = 'active';
+        }
+        expandedLevel = (state.levels.find(l=>l.status==='active')||{}).id || null;
+        checkDailyQuest();
+        render();
+      }
+    }
+    window.addEventListener('online', retrySyncIfNeeded);
+    if(!stateLoaded){
+      const retryTimer = setInterval(async ()=>{
+        await retrySyncIfNeeded();
+        if(stateLoaded) clearInterval(retryTimer);
+      }, 5000);
+    }
 
     const welcomeOverlay = document.getElementById('welcomeOverlay');
     const welcomeName = document.getElementById('welcomeName');
