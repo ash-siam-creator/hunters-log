@@ -46,18 +46,6 @@
 
   ::selection{background:var(--violet-dim);color:#fff;}
 
-  /* ---------- OFFLINE / SYNC NOTICE ---------- */
-  .offline-bar{
-    position:fixed;top:0;left:0;right:0;z-index:100;
-    background:linear-gradient(90deg, var(--danger), var(--gold-dim));
-    color:#0a0a14;font-family:'Rajdhani',sans-serif;font-weight:700;
-    font-size:12.5px;letter-spacing:1px;text-align:center;
-    padding:8px 12px;
-    transform:translateY(-100%);
-    transition:transform .35s ease;
-  }
-  .offline-bar.show{transform:translateY(0);}
-
   /* ---------- NEON TITLE ---------- */
   .neon-title{
     text-align:center;
@@ -458,6 +446,29 @@
   .wisdom-eyebrow{font-size:10px;letter-spacing:3px;color:var(--cyan);text-transform:uppercase;margin-bottom:8px;}
   .wisdom-text{font-size:13.5px;line-height:1.6;color:var(--text-dim);}
 
+  /* ---------- NOTEPAD ---------- */
+  .notepad-card{
+    border:1px solid var(--border-soft);background:var(--panel);border-radius:4px;
+    padding:14px;margin-bottom:18px;
+  }
+  .note-textarea{
+    width:100%;background:var(--void2);border:1px solid var(--border-soft);color:var(--text);
+    border-radius:3px;padding:10px 12px;font-family:'Chakra Petch',sans-serif;font-size:13.5px;
+    outline:none;resize:vertical;min-height:80px;line-height:1.5;
+  }
+  .note-textarea:focus{border-color:var(--violet-dim);}
+  .notepad-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap;}
+  .notepad-hint{font-size:10.5px;color:var(--text-faint);letter-spacing:0.5px;}
+  .note-card{
+    border:1px solid var(--border-soft);background:var(--panel);border-radius:4px;
+    padding:14px;margin-bottom:10px;position:relative;
+  }
+  .note-meta{font-size:10.5px;color:var(--text-faint);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+  .note-text{font-size:13.5px;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word;padding-right:34px;}
+  .note-del{
+    position:absolute;top:12px;right:12px;
+  }
+
   @media(max-width:480px){
     .hud-stats{gap:14px;}
     .lu-title{font-size:30px;}
@@ -466,8 +477,6 @@
 </style>
 </head>
 <body>
-<script src="js/features.js"></script>
-<div class="offline-bar" id="offlineBar">⚠ Offline — couldn't confirm your saved progress. Changes are paused until reconnected.</div>
 
 <div class="welcome-overlay" id="welcomeOverlay">
   <div class="welcome-inner">
@@ -555,6 +564,7 @@
     <button class="tab-btn" data-tab="stats">Stats</button>
     <button class="tab-btn" data-tab="subjects">Subjects</button>
     <button class="tab-btn" data-tab="quests">Quests</button>
+    <button class="tab-btn" data-tab="notepad">Notepad</button>
   </div>
 
   <!-- ============ DUNGEON TAB ============ -->
@@ -641,6 +651,22 @@
     <div class="title-ladder" id="titleLadder"></div>
   </div>
 
+  <!-- ============ NOTEPAD TAB ============ -->
+  <div class="tab-panel" id="panel-notepad">
+    <div class="section-head">
+      <span class="section-title">Hunter's notepad</span>
+      <div class="line"></div>
+    </div>
+    <div class="notepad-card">
+      <textarea id="noteInput" class="note-textarea" rows="4" placeholder="Jot down your thoughts on study, or anything else on your mind..."></textarea>
+      <div class="notepad-actions">
+        <span class="notepad-hint">Ctrl/Cmd + Enter to save</span>
+        <button class="btn" id="saveNoteBtn">Save note</button>
+      </div>
+    </div>
+    <div id="notesList"></div>
+  </div>
+
   <div class="foot">
     <button class="reset-link" id="resetBtn">reset all progress</button>
   </div>
@@ -687,7 +713,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-  import { initializeFirestore, persistentLocalCache, persistentSingleTabManager, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyCltfp3gA9aH6ySZoq8qYEKxeBfs5eX-Vw",
@@ -698,9 +724,7 @@
     appId: "1:4883610924:web:622a689817190400d57aab"
   };
   const firebaseApp = initializeApp(firebaseConfig);
-  const db = initializeFirestore(firebaseApp, {
-    localCache: persistentLocalCache({ tabManager: persistentSingleTabManager() })
-  });
+  const db = getFirestore(firebaseApp);
   const docRef = doc(db, "system", "hunter_data");
 
 (function(){
@@ -845,7 +869,7 @@
     return Math.round((pos/span)*100);
   }
   function baseMinutesForLevel(n){
-    return 20 + (n-1)*3;
+    return 20 + (n-1)*5;
   }
   function uid(){
     return 't'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -868,12 +892,14 @@
     currentLevelNumber: 1,
     history: [],
     semester: { cgpaTarget:3.90, cts:0, ctsTotal:8, assignments:0, assignmentsTotal:14, labReports:0, labReportsTotal:5 },
-    hiddenQuest: { date:null, questId:null, claimed:false }
+    hiddenQuest: { date:null, questId:null, claimed:false },
+    notes: []
   };
   function ensureStateShape(){
     if(!Array.isArray(state.history)) state.history = [];
     if(!state.semester) state.semester = { cgpaTarget:3.90, cts:0, ctsTotal:8, assignments:0, assignmentsTotal:14, labReports:0, labReportsTotal:5 };
     if(!state.hiddenQuest) state.hiddenQuest = { date:null, questId:null, claimed:false };
+    if(!Array.isArray(state.notes)) state.notes = [];
     if(state.player.bonusExp === undefined) state.player.bonusExp = 0;
     if(state.player.lastWisdom === undefined) state.player.lastWisdom = null;
     if(state.player.dailyDate === undefined) state.player.dailyDate = null;
@@ -892,23 +918,23 @@
   }
 
   let saveTimer = null;
-  let stateLoaded = false;
-  let offlineNoticeShown = false;
-
+  let syncReady = false; // only true once we've confirmed the real state from the server
   function scheduleSave(){
-    if(!stateLoaded) return; // never queue a write until we've confirmed real data
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveState, 800);
   }
   async function saveState(){
-    if(!stateLoaded){
-      console.warn('System Sync: Save blocked — state has not been confirmed from the cloud yet.');
+    if(!syncReady){
+      console.warn('System Sync: save skipped — no confirmed connection to your saved profile yet.');
       return;
     }
     try{
       await setDoc(docRef, state);
       console.log("System Sync: Progress uploaded to the cloud.");
-    }catch(e){ console.error('System Error: Sync upload failed', e); }
+    }catch(e){
+      console.error('System Error: Sync upload failed', e);
+      syncReady = false;
+    }
   }
   async function loadState(){
     try{
@@ -918,7 +944,7 @@
         if(parsed && parsed.player && parsed.levels){
           state = parsed;
           state.levels.forEach(lv=>{
-            lv.tasks.forEach(t=>{ t.running = false; });
+            lv.tasks.forEach(t=>{ t.running = false; delete t.endTimestamp; });
           });
           console.log("System Sync: Profile restored successfully.");
         }
@@ -926,24 +952,11 @@
       } else {
         console.log("Welcome Hunter: Initializing a fresh save slot.");
       }
-      stateLoaded = true; // only now is it safe to let saves through
-      hideOfflineNotice();
+      syncReady = true;
     }catch(e){
-      console.error('System Error: Data retrieval failed — saving is disabled until sync succeeds.', e);
-      showOfflineNotice();
+      console.error('System Error: Data retrieval failed — offline or unreachable. Saving is paused until reconnected.', e);
+      syncReady = false;
     }
-  }
-
-  function showOfflineNotice(){
-    if(offlineNoticeShown) return;
-    offlineNoticeShown = true;
-    const bar = document.getElementById('offlineBar');
-    if(bar) bar.classList.add('show');
-  }
-  function hideOfflineNotice(){
-    offlineNoticeShown = false;
-    const bar = document.getElementById('offlineBar');
-    if(bar) bar.classList.remove('show');
   }
 
   const runningIntervals = {};
@@ -1012,11 +1025,59 @@
     render();
   }
 
+  /* ---------- Sound + notification when a timer finishes ---------- */
+  let audioCtx = null;
+  function unlockAudio(){
+    try{
+      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+    }catch(e){ /* Web Audio not available */ }
+  }
+  function playCompletionSound(){
+    try{
+      if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if(audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      const freqs = [880, 1108, 1318];
+      freqs.forEach((f, i)=>{
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = f;
+        const start = now + i*0.18;
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.32, start+0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start+0.17);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(start);
+        osc.stop(start+0.18);
+      });
+    }catch(e){ console.error('System Error: could not play completion sound', e); }
+  }
+  function ensureNotificationPermission(){
+    try{
+      if('Notification' in window && Notification.permission === 'default'){
+        Notification.requestPermission().catch(()=>{});
+      }
+    }catch(e){ /* Notifications not available */ }
+  }
+  function notifyTaskComplete(task){
+    try{
+      if('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible'){
+        new Notification('Session complete — THE SYSTEM', { body: task.subject+' ('+task.minutes+' min) is done.' });
+      }
+    }catch(e){ /* Notifications not available */ }
+  }
+
   function completeTask(level, task){
     task.completed = true;
     task.running = false;
+    delete task.endTimestamp;
     clearInterval(runningIntervals[task.id]);
     delete runningIntervals[task.id];
+    playCompletionSound();
+    notifyTaskComplete(task);
     state.player.totalMinutes += task.minutes;
     state.player.tasksDone += 1;
     ensureStateShape();
@@ -1034,7 +1095,8 @@
     scheduleSave();
     render();
     const completedMinutes = level.tasks.filter(t=>t.completed).reduce((sum,t)=>sum+t.minutes,0);
-    if(level.status === 'active' && completedMinutes >= level.baseMinutes){
+    const allDone = level.tasks.length>0 && level.tasks.every(t=>t.completed) && completedMinutes >= level.baseMinutes;
+    if(allDone){
       setTimeout(()=>levelUp(level), 400);
     }
   }
@@ -1073,24 +1135,33 @@
     render();
   }
 
+  function tickTask(level, task){
+    if(!task.running || !task.endTimestamp) return;
+    const remaining = Math.max(0, Math.round((task.endTimestamp - Date.now())/1000));
+    task.remainingSec = remaining;
+    if(remaining <= 0){
+      completeTask(level, task);
+      return;
+    }
+    const el = document.getElementById('timer-'+task.id);
+    if(el) el.textContent = fmtTime(task.remainingSec);
+  }
   function startTimer(level, task){
     if(task.completed || task.running) return;
+    unlockAudio();
+    ensureNotificationPermission();
     task.running = true;
+    task.endTimestamp = Date.now() + task.remainingSec*1000;
     render();
-    runningIntervals[task.id] = setInterval(()=>{
-      task.remainingSec -= 1;
-      if(task.remainingSec <= 0){
-        task.remainingSec = 0;
-        completeTask(level, task);
-        return;
-      }
-      const el = document.getElementById('timer-'+task.id);
-      if(el) el.textContent = fmtTime(task.remainingSec);
-    }, 1000);
+    runningIntervals[task.id] = setInterval(()=>tickTask(level, task), 1000);
     scheduleSave();
   }
   function pauseTimer(task){
+    if(task.running && task.endTimestamp){
+      task.remainingSec = Math.max(0, Math.round((task.endTimestamp - Date.now())/1000));
+    }
     task.running = false;
+    delete task.endTimestamp;
     clearInterval(runningIntervals[task.id]);
     delete runningIntervals[task.id];
     scheduleSave();
@@ -1098,12 +1169,36 @@
   }
   function resetTimer(task){
     task.running = false;
+    delete task.endTimestamp;
     clearInterval(runningIntervals[task.id]);
     delete runningIntervals[task.id];
     task.remainingSec = task.minutes*60;
     scheduleSave();
     render();
   }
+  // Catches up any running timers the moment the tab regains focus, since
+  // background tabs get throttled and may not fire their interval on time.
+  function syncRunningTimers(){
+    let changed = false;
+    state.levels.forEach(level=>{
+      level.tasks.forEach(task=>{
+        if(task.running && task.endTimestamp){
+          const remaining = Math.max(0, Math.round((task.endTimestamp - Date.now())/1000));
+          task.remainingSec = remaining;
+          if(remaining <= 0){
+            completeTask(level, task);
+            changed = true;
+          }
+        }
+      });
+    });
+    if(!changed) render();
+  }
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible'){
+      syncRunningTimers();
+    }
+  });
   function deleteTask(level, task){
     if(task.running){ clearInterval(runningIntervals[task.id]); delete runningIntervals[task.id]; }
     level.tasks = level.tasks.filter(t=>t.id!==task.id);
@@ -1128,8 +1223,8 @@
   function levelStatusLabel(level){
     if(level.status==='locked') return 'LOCKED';
     if(level.status==='completed') return 'CLEARED';
-    const doneMinutes = level.tasks.filter(t=>t.completed).reduce((s,t)=>s+t.minutes,0);
-    return Math.min(doneMinutes,level.baseMinutes)+' / '+level.baseMinutes+' MIN';
+    const done = level.tasks.filter(t=>t.completed).length;
+    return done+' / '+level.tasks.length+' TASKS';
   }
 
   function render(){
@@ -1170,7 +1265,7 @@
         <div class="level-num display">${level.number}</div>
         <div class="level-info">
           <div class="level-title display">Level ${level.number}</div>
-          <div class="level-sub">Clear requirement &middot; ${level.baseMinutes} total min studied</div>
+          <div class="level-sub">Study session length &middot; ${level.baseMinutes} min per task</div>
         </div>
         <div class="level-status-icon display">${levelStatusLabel(level)}</div>
       `;
@@ -1545,12 +1640,59 @@
     if(wisdomEl) wisdomEl.textContent = state.player.lastWisdom || 'Complete a level to receive wisdom from the System.';
   }
 
+  function addNote(text){
+    text = (text||'').trim();
+    if(!text) return;
+    const now = new Date();
+    state.notes.push({
+      id: uid(),
+      date: todayStr(),
+      time: now.toTimeString().slice(0,5),
+      text
+    });
+    scheduleSave();
+    renderNotepad();
+  }
+  function deleteNote(id){
+    state.notes = state.notes.filter(n=>n.id!==id);
+    scheduleSave();
+    renderNotepad();
+  }
+  function renderNotepad(){
+    ensureStateShape();
+    const el = document.getElementById('notesList');
+    if(!el) return;
+    if(!state.notes.length){
+      el.innerHTML = '<div class="empty-hint">No notes yet. Write down what\'s on your mind above.</div>';
+      return;
+    }
+    const rows = [...state.notes].sort((a,b)=>{
+      const ak = a.date+a.time, bk = b.date+b.time;
+      return ak<bk ? 1 : ak>bk ? -1 : 0;
+    });
+    el.innerHTML = rows.map(n=>`
+      <div class="note-card" data-id="${n.id}">
+        <div class="note-meta">${n.date} &middot; ${n.time}</div>
+        <div class="note-text">${escapeHtml(n.text)}</div>
+      </div>
+    `).join('');
+    el.querySelectorAll('.note-card').forEach(card=>{
+      const delBtn = document.createElement('button');
+      delBtn.className = 'icon-btn danger note-del';
+      delBtn.title = 'Delete note';
+      delBtn.textContent = '✕';
+      delBtn.addEventListener('click', ()=>deleteNote(card.dataset.id));
+      card.appendChild(delBtn);
+    });
+  }
+
   function renderExtraTabs(){
     renderDashboard();
     renderSubjectMastery();
     renderSemesterCard();
     renderHiddenQuest();
     renderTitleLadder();
+    renderNotepad();
   }
 
   document.getElementById('playerName').addEventListener('input', (e)=>{
@@ -1568,6 +1710,19 @@
 
   document.getElementById('penCloseBtn').addEventListener('click', ()=>{
     document.getElementById('penOverlay').classList.remove('show');
+  });
+
+  document.getElementById('saveNoteBtn').addEventListener('click', ()=>{
+    const ta = document.getElementById('noteInput');
+    addNote(ta.value);
+    ta.value = '';
+    ta.focus();
+  });
+  document.getElementById('noteInput').addEventListener('keydown', (e)=>{
+    if((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
+      e.preventDefault();
+      document.getElementById('saveNoteBtn').click();
+    }
   });
 
   document.getElementById('tabNav').addEventListener('click', (e)=>{
@@ -1590,7 +1745,8 @@
       currentLevelNumber: 1,
       history: [],
       semester: { cgpaTarget:3.90, cts:0, ctsTotal:8, assignments:0, assignmentsTotal:14, labReports:0, labReportsTotal:5 },
-      hiddenQuest: { date:null, questId:null, claimed:false }
+      hiddenQuest: { date:null, questId:null, claimed:false },
+      notes: []
     };
     expandedLevel = null;
     await saveState();
@@ -1609,31 +1765,6 @@
     render();
     setInterval(checkDailyQuest, 60000);
 
-    // If the initial load failed (offline with nothing cached yet), keep retrying
-    // quietly in the background. Saving stays blocked (see stateLoaded) until one
-    // of these succeeds, so nothing can overwrite real cloud data with a blank state.
-    async function retrySyncIfNeeded(){
-      if(stateLoaded) return;
-      await loadState();
-      if(stateLoaded){
-        ensureStateShape();
-        if(!state.levels.find(l=>l.status==='active')){
-          const cur = state.levels.find(l=>l.number===state.currentLevelNumber);
-          if(cur) cur.status = 'active';
-        }
-        expandedLevel = (state.levels.find(l=>l.status==='active')||{}).id || null;
-        checkDailyQuest();
-        render();
-      }
-    }
-    window.addEventListener('online', retrySyncIfNeeded);
-    if(!stateLoaded){
-      const retryTimer = setInterval(async ()=>{
-        await retrySyncIfNeeded();
-        if(stateLoaded) clearInterval(retryTimer);
-      }, 5000);
-    }
-
     const welcomeOverlay = document.getElementById('welcomeOverlay');
     const welcomeName = document.getElementById('welcomeName');
     if(welcomeName) welcomeName.textContent = state.player.name || 'Hunter';
@@ -1647,6 +1778,24 @@
       setTimeout(dismissWelcome, 3400);
     }
   })();
+
+  window.addEventListener('online', async ()=>{
+    if(syncReady) return; // already synced with the server, nothing to recover
+    console.log('System Sync: connection restored — reloading your saved profile...');
+    await loadState();
+    if(syncReady){
+      ensureStateShape();
+      if(!state.levels.find(l=>l.status==='active')){
+        const cur = state.levels.find(l=>l.number===state.currentLevelNumber);
+        if(cur) cur.status = 'active';
+      }
+      if(!state.levels.find(l=>l.id===expandedLevel)){
+        expandedLevel = (state.levels.find(l=>l.status==='active')||{}).id || null;
+      }
+      checkDailyQuest();
+      render();
+    }
+  });
 })();
 })();
 if ("serviceWorker" in navigator) {
